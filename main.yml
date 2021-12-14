@@ -1,0 +1,20 @@
+---
+
+- name: Install sample roles
+  hosts: all
+  become: yes
+  roles:
+    - role: mysql-db
+      tags:
+        - mysql-db
+    - role: postgresql-db
+      tags:
+        - postgresql-db
+    - role: redis
+      tags:
+        - redis
+    - role: vnc-server
+      tags: vnc-server
+
+
+...
