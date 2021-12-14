@@ -1,0 +1,9 @@
+### Ansible template
+*.retry
+
+# PyCharm project files
+.idea/
+
+# Ansible collections
+collections
+!collections/requirements.yml
