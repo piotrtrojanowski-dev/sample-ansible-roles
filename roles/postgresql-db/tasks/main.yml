@@ -1,0 +1,90 @@
+---
+
+- name: Install Ansible module dependency (postgresql)
+  yum:
+    name: python3-psycopg2
+    state: latest
+
+- name: Install PostgreSQL server
+  yum:
+    name: postgresql-server
+    state: latest
+  notify: Restart Postgres
+
+- name: Open port for database
+  firewalld:
+    service: postgresql
+    permanent: yes
+    zone: public
+    immediate: yes
+    state: enabled
+
+- name: Initialize database
+  command: postgresql-setup initdb
+  args:
+    creates: /var/lib/pgsql/data/postgresql.conf
+
+- name: Configure bind address
+  replace:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: "^#listen_addresses = 'localhost'"
+    replace: listen_addresses = '{{ inventory_hostname }}'
+  notify: Restart Postgres
+
+- name: Configure remote login
+  community.general.postgresql_pg_hba:
+    dest: /var/lib/pgsql/data/pg_hba.conf
+    contype: host
+    users: "{{ postgresql_user }}"
+    source: "{{ postgresql_user_cidr }}"
+    databases: "{{ postgresql_database }}"
+    method: md5
+    state: present
+  when:
+    - postgresql_database is defined
+    - postgresql_user is defined
+  notify: Restart Postgres
+
+- name: Start PostgreSQL server
+  service:
+    name: postgresql
+    enabled: yes
+    state: started
+
+- name: Create database
+  community.general.postgresql_db:
+    name: "{{ postgresql_database }}"
+    state: present
+  when:
+    - postgresql_database is defined
+    - postgresql_user is defined
+  become: yes
+  become_user: postgres
+
+- name: Create user
+  community.general.postgresql_user:
+    db: "{{ postgresql_database }}"
+    name: "{{ postgresql_user }}"
+    password: "{{ postgresql_password }}"
+    priv: ALL
+    expires: "infinity"
+    state: present
+  when:
+    - postgresql_database is defined
+    - postgresql_user is defined
+    - postgresql_password is defined
+  become: yes
+  become_user: postgres
+
+- name: Set ownership of created database
+  community.general.postgresql_db:
+    name: "{{ postgresql_database }}"
+    owner: "{{ postgresql_user }}"
+    state: present
+  when:
+    - postgresql_database is defined
+    - postgresql_user is defined
+  become: yes
+  become_user: postgres
+
+...
