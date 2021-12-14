@@ -1,0 +1,8 @@
+---
+
+redis_expose: no
+redis_allowed_sources:
+  - 127.0.0.1/8
+redis_password: secret
+
+...

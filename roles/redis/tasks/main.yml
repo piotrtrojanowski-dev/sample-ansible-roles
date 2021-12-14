@@ -1,0 +1,40 @@
+---
+
+- name: Tune system for Redis
+  sysctl:
+    name: vm.overcommit_memory
+    value: '1'
+    state: present
+
+- name: Install Redis  # noqa 403
+  yum:
+    name: redis
+    state: latest
+  notify: Restart Redis
+
+- name: Configure Redis
+  template:
+    src: redis.conf
+    dest: /etc/redis.conf
+    owner: redis
+    group: redis
+    mode: "0600"
+  notify: Restart Redis
+  no_log: yes
+
+- name: Open port on firewall
+  firewalld:
+    service: redis
+    permanent: yes
+    immediate: yes
+    zone: public
+    state: enabled
+  when: redis_expose
+
+- name: Start and enable Redis service
+  service:
+    name: redis
+    enabled: yes
+    state: started
+
+...
