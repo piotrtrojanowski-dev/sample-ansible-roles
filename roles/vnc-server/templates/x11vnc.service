@@ -1,0 +1,12 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description=Start x11vnc at startup.
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/x11vnc -auth guess -forever -loop -display :0 -noxdamage -repeat -rfbauth {{ vnc_dir }}/conf/x11vnc/vncpass -rfbport 5900 -shared
+
+[Install]
+WantedBy=multi-user.target

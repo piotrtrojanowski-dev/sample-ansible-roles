@@ -1,0 +1,7 @@
+---
+
+x11vnc_state: present
+
+vnc_dir: /etc/vnc
+
+...

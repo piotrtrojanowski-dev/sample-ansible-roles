@@ -1,0 +1,29 @@
+---
+
+- name: Gather info about system services
+  service_facts:
+
+- name: Disable and stop VNC daemon
+  service:
+    name: x11vnc
+    enabled: no
+    state: stopped
+  when: '"x11vnc.service" in ansible_facts.services'
+
+- name: Remove x11vnc
+  yum:
+    name: x11vnc
+    state: absent
+
+- name: Remove config directory for x11vnc
+  file:
+    name: "{{ vnc_dir }}/conf/x11vnc"
+    state: absent
+
+- name: Remove systemd service file
+  file:
+    path: /etc/systemd/system/x11vnc.service
+    state: absent
+  notify: Reload daemon
+
+...

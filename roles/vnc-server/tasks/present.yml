@@ -1,0 +1,35 @@
+---
+
+- name: Install x11vnc  # noqa 403
+  yum:
+    name: x11vnc
+    state: latest
+  notify: Restart VNC
+
+- name: Create required directories
+  file:
+    name: "{{ vnc_dir }}/conf/x11vnc"
+    state: directory
+
+- name: Configure x11vnc
+  command: x11vnc --storepasswd {{ vncpasswd }} {{ vnc_dir }}/conf/x11vnc/vncpass
+  args:
+    creates: "{{ vnc_dir }}/conf/x11vnc/vncpass"
+  no_log: true
+  notify: Restart VNC
+
+- name: Install systemd service file
+  template:
+    src: x11vnc.service
+    dest: /etc/systemd/system/x11vnc.service
+  notify:
+    - Reload daemon
+    - Restart VNC
+
+- name: Enable and start VNC daemon
+  service:
+    name: x11vnc
+    enabled: yes
+    state: started
+
+...
