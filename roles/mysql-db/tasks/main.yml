@@ -1,0 +1,121 @@
+---
+
+- name: Remove MariaDB (conflicts with MySQL)
+  yum:
+    name:
+      - mariadb
+      - mariadb-server
+      - mariadb-libs
+    state: absent
+
+- name: Install Ansible module dependencies (mysql)
+  yum:
+    name: MySQL-python
+    state: latest
+  when: ansible_distribution_major_version | int < 8
+
+- name: Install Ansible module dependencies (mysql)
+  yum:
+    name: python3-PyMySQL
+    state: latest
+  when: ansible_distribution_major_version | int >= 8
+
+- name: Install MySQL repo
+  yum:
+    name: https://dev.mysql.com/get/mysql80-community-release-el{{ ansible_distribution_major_version }}-3.noarch.rpm
+    state: latest
+
+- name: Install MySQL stack packages
+  yum:
+    name:
+      - mysql-community-server-{{ mysql_version }}
+      - mysql-community-client-{{ mysql_version }}
+      - mysql-community-common-{{ mysql_version }}
+      - mysql-community-libs-{{ mysql_version }}
+      - mysql-community-libs-compat-{{ mysql_version }}
+      - mysql-connector-java-{{ mysql_version }}
+    allow_downgrade: yes
+    state: present
+  notify: Restart MySQL
+
+- name: Open port for database
+  ansible.posix.firewalld:
+    service: mysql
+    permanent: yes
+    zone: public
+    immediate: yes
+    state: enabled
+
+- name: Install system config file
+  template:
+    src: my.cnf
+    dest: /etc/
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Create datadir if it does not exist
+  file:
+    path: /var/lib/mysql
+    owner: mysql
+    group: mysql
+    mode: "0755"
+    setype: mysqld_db_t
+    state: directory
+
+- name: Start MySQL server
+  service:
+    name: mysqld
+    enabled: yes
+    state: started
+
+- name: Acquire temporary root password
+  shell: "grep 'A temporary password is generated' /var/log/mysqld.log | awk -F ' ' '{print $(NF)}'"
+  register: root_password
+  check_mode: no
+
+- name: Remove line with temporary password
+  lineinfile:
+    path: /var/log/mysqld.log
+    regexp: 'temporary password'
+    state: absent
+
+- name: Update MySQL root password for localhost root account
+  command:
+    argv:
+      - mysql
+      - --batch
+      - --skip-column-names
+      - --user=root
+      - --password={{ root_password.stdout }}
+      - --connect-expired-password
+      - --execute=ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{ mysql_root_password }}';
+  when: root_password.stdout
+
+- name: Install user config file
+  template:
+    src: root-my.cnf
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Disallow root login remotely
+  command: mysql --batch --skip-column-names --execute="DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');"
+  changed_when: false
+
+- name: Populate the Time Zone Tables
+  shell: mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql mysql
+
+- name: Deletes anonymous MySQL user
+  community.mysql.mysql_user:
+    user: ""
+    host_all: yes
+    state: absent
+
+- name: Remove the MySQL test database
+  community.mysql.mysql_db:
+    db: test
+    state: absent
+
+...
